@@ -30,3 +30,37 @@ $router->group(
         });
     }
 );
+$router->group(['middleware' => 'jwt.auth'], function($router)
+{
+    $router->group(['prefix' => 'income'], function () use ($router)
+    {
+        $router->get('users', function() {
+            $users = \App\User::all();
+            return response()->json($users);
+        });
+
+        $router->get('/', [
+            'uses' => 'IncomeController@index'
+        ]);
+
+        $router->get('/search', [
+            'uses' => 'IncomeController@search'
+        ]);
+
+        $router->put('/{income}', [
+            'uses' => 'IncomeController@update'
+        ]);
+
+        $router->get('/{income}', [
+            'uses' => 'IncomeController@detail'
+        ]);
+
+        $router->delete('/{income}', [
+            'uses' => 'IncomeController@delete'
+        ]);
+
+        $router->post('/', [
+            'uses' => 'IncomeController@store'
+        ]);
+    });
+});

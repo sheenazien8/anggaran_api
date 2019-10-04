@@ -13,7 +13,7 @@ class ExpenseController extends Controller
     {
         $incomes = Expense::with('category', 'user')
                             ->where('user_id', Cache::get('auth')->id)
-                            ->latest()->paginate(10);
+                            ->orderBy('date', 'desc')->paginate(10);
 
         return response()->json([
             'incomes' => $incomes,
@@ -25,7 +25,7 @@ class ExpenseController extends Controller
     {
         $incomes = Expense::with('category', 'user')
                             ->where('user_id', Cache::get('auth')->id)
-                            ->orWhereNull('user_id')->latest()->get();
+                            ->orWhereNull('user_id')->orderBy('date', 'desc')->get();
 
         return response()->json([
             'incomes' => $incomes,
@@ -108,7 +108,7 @@ class ExpenseController extends Controller
         $incomes = Expense::with('category', 'user')
                             ->where('description', 'LIKE', "%%".$request->input('q')."%%")
                             ->where('user_id', Cache::get('auth')->id)
-                            ->latest()->paginate(10);
+                            ->orderBy('date', 'desc')->paginate(10);
 
         return response()->json([
             'message' => 'Success!',

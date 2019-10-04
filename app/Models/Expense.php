@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 
-class Income extends Model
+class Expense extends Model
 {
     protected $fillable = [
         'money',

@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class CreateCategoryIncomesTable extends Migration
+class CreateCategoriesTable extends Migration
 {
     /**
      * Run the migrations.
@@ -13,7 +13,7 @@ class CreateCategoryIncomesTable extends Migration
      */
     public function up()
     {
-        Schema::create('category_incomes', function (Blueprint $table) {
+        Schema::create('categories', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->string('name');
             $table->bigInteger('type_id')->unsigned();
@@ -32,6 +32,6 @@ class CreateCategoryIncomesTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('category_incomes');
+        Schema::dropIfExists('categories');
     }
 }

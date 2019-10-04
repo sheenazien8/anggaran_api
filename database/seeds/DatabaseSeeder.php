@@ -16,7 +16,7 @@ class DatabaseSeeder extends Seeder
         // Register the user seeder
         $this->call(UserTableSeeder::class);
         $this->call(TypesTableSeeder::class);
-        $this->call(CategoryIncomeTableSeeder::class);
+        $this->call(CategoryTableSeeder::class);
         Model::reguard();
     }
 }

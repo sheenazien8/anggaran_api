@@ -78,5 +78,26 @@ $router->group(['middleware' => 'jwt.auth'], function($router)
             'uses' => 'ExpenseController@store'
         ]);
     });
+    $router->group(['prefix' => 'estimation'], function () use ($router)
+    {
+        $router->get('/', [
+            'uses' => 'ExpenseEstimationController@index'
+        ]);
+        $router->get('/search', [
+            'uses' => 'ExpenseEstimationController@search'
+        ]);
+        $router->put('/{income}', [
+            'uses' => 'ExpenseEstimationController@update'
+        ]);
+        $router->get('/{income}', [
+            'uses' => 'ExpenseEstimationController@detail'
+        ]);
+        $router->delete('/{income}', [
+            'uses' => 'ExpenseEstimationController@delete'
+        ]);
+        $router->post('/', [
+            'uses' => 'ExpenseEstimationController@store'
+        ]);
+    });
 
 });

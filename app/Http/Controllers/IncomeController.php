@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CategoryIncome;
+use App\Models\Category;
 use App\Models\Income;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -11,7 +11,7 @@ class IncomeController extends Controller
 {
     public function index()
     {
-        $incomes = Income::with('category')
+        $incomes = Income::with('category', 'user')
                             ->where('user_id', Cache::get('auth')->id)
                             ->latest()->paginate(10);
 
@@ -23,7 +23,7 @@ class IncomeController extends Controller
 
     public function getAll()
     {
-        $incomes = Income::with('category')
+        $incomes = Income::with('category', 'user')
                             ->where('user_id', Cache::get('auth')->id)
                             ->orWhereNull('user_id')->latest()->get();
 
@@ -35,7 +35,7 @@ class IncomeController extends Controller
 
     public function detail($income)
     {
-        $income = Income::with('category')->find($income);
+        $income = Income::with('category', 'user')->find($income);
 
         return response()->json([
             'message' => 'Success!',
@@ -50,11 +50,17 @@ class IncomeController extends Controller
             'money' => 'required',
             'date' => 'required'
         ]);
-        $category = CategoryIncome::find($request->category_id);
-        $income = new Income();
-        $income->fill($request->all());
-        $income->category()->associate($category);
-        $income->save();
+        $category = Category::find($request->category_id);
+        if ($category->type->name == 'Income') {
+            $income = new Income();
+            $income->fill($request->all());
+            $income->category()->associate($category);
+            $income->save();
+        }else {
+            return response()->json([
+                "message" => "Category type is not allowed"
+            ], 402);
+        }
 
         return response()->json([
             'message' => 'Success!',
@@ -70,10 +76,16 @@ class IncomeController extends Controller
             'money' => 'required',
             'date' => 'required'
         ]);
-        $category = CategoryIncome::find($request->category_id);
-        $income->fill($request->all());
-        $income->category()->associate($category);
-        $income->save();
+        $category = Category::find($request->category_id);
+        if ($category->type->name == 'Income') {
+            $income->fill($request->all());
+            $income->category()->associate($category);
+            $income->save();
+        }else {
+            return response()->json([
+                "message" => "Category type is not allowed"
+            ], 402);
+        }
 
         return response()->json([
             'message' => 'Success!',
@@ -94,7 +106,7 @@ class IncomeController extends Controller
 
     public function search(Request $request)
     {
-        $incomes = Income::with('category')
+        $incomes = Income::with('category', 'user')
                             ->where('description', 'LIKE', "%%".$request->input('q')."%%")
                             ->where('user_id', Cache::get('auth')->id)
                             ->latest()->paginate(10);

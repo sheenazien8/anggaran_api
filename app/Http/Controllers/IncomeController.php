@@ -46,7 +46,7 @@ class IncomeController extends Controller
      */
     public function detail($income)
     {
-        $income = Income::with('category', 'user')->find($income);
+        $income = Income::with('category', 'user')->findOrFail($income);
 
         return response()->json([
             'message' => 'Success!',
@@ -69,7 +69,7 @@ class IncomeController extends Controller
         ]);
         try {
             DB::beginTransaction();
-            $category = Category::find($request->category_id);
+            $category = Category::findOrFail($request->category_id);
             if ($category->type->name == 'Income') {
                 $income = new Income();
                 $income->fill($request->all());
@@ -106,15 +106,15 @@ class IncomeController extends Controller
      */
     public function update(Request $request, $income)
     {
-        $income = Income::find($income);
+        $income = Income::findOrFail($income);
         $this->validate($request, [
             'category_id' => 'required',
-            'money' => 'requiredi|int',
+            'money' => 'required|int',
             'date' => 'required'
         ]);
         try {
             DB::beginTransaction();
-            $category = Category::find($request->category_id);
+            $category = Category::findOrFail($request->category_id);
             if ($category->type->name == 'Income') {
                 $income->fill($request->all());
                 $income->category()->associate($category);
@@ -147,12 +147,23 @@ class IncomeController extends Controller
      */
     public function delete($income)
     {
-        $income = Income::find($income);
-        $income->delete();
+        try {
+            DB::beginTransaction();
 
-        return response()->json([
-            'message' => 'Success!'
-        ]);
+            $income = Income::findOrFail($income);
+            $income->delete();
+            DB::commit();
+            return response()->json([
+                'message' => 'Success!'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollback();
+
+            return response()->json([
+                'error' => true,
+                'message' => $e->message
+            ]);
+        }
     }
     /**
      * Search data income by description, user_id

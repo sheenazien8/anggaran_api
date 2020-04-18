@@ -25,12 +25,20 @@ $router->get('rand_str', function ()
     return Illuminate\Support\Str::random(32);
 });
 
+$router->get('test', function ()
+{
+    return response()->json([
+        'message' => 'Success!',
+        'date' => date('Y-m-d h:i:s')
+    ]);
+});
+
 $router->group(
     ['middleware' => 'jwt.auth'],
     function() use ($router) {
-        $router->get('users', function() {
-            $users = \App\User::all();
-            return response()->json($users);
+        $router->get('test/auth', function() {
+            $user = \App\Models\User::find(app('request')->auth->id)->first();
+            return response()->json($user);
         });
     }
 );

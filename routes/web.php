@@ -20,6 +20,10 @@ $router->post(
        'uses' => 'AuthController@authenticate'
     ]
 );
+$router->get('rand_str', function ()
+{
+    return Illuminate\Support\Str::random(32);
+});
 
 $router->group(
     ['middleware' => 'jwt.auth'],

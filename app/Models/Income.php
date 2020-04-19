@@ -17,7 +17,7 @@ class Income extends Model
     {
         parent::boot();
         static::creating(function ($query) {
-            $query->user_id = Cache::get('auth')->id;
+            $query->user_id = app('request')->auth->id;
         });
     }
 

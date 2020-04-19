@@ -52,7 +52,7 @@ class IncomeTest extends TestCase
             'date' => "2020-04-19",
             'description' => 'Gaji Bulan September'
         ];
-        $randIncome = Income::where('id', rand(Income::latest()->first()->id, Income::first()->id))->first();
+        $randIncome = Income::find(rand(Income::first()->id, Income::latest()->first()->id));
         $user = User::first();
         $response = $this->put("/income/$randIncome->id", $data, $this->headers($user));
         $this->seeStatusCode(200)
@@ -66,7 +66,7 @@ class IncomeTest extends TestCase
      */
     public function testtDeleteIncome(): void
     {
-        $randIncome = Income::where('id', rand(Income::latest()->first()->id, Income::first()->id))->first();
+        $randIncome = Income::find(rand(Income::first()->id, Income::latest()->first()->id));
         $user = User::first();
         $response = $this->delete("/income/$randIncome->id", [], $this->headers($user));
         $this->seeStatusCode(200)

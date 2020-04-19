@@ -1,7 +1,10 @@
 <?php
 
+use Test\AttachTokenTest;
+
 abstract class TestCase extends Laravel\Lumen\Testing\TestCase
 {
+    use AttachTokenTest;
     /**
      * Creates the application.
      *
@@ -10,5 +13,16 @@ abstract class TestCase extends Laravel\Lumen\Testing\TestCase
     public function createApplication()
     {
         return require __DIR__.'/../bootstrap/app.php';
+    }
+    protected function headers($user = null)
+    {
+        $headers = ['Accept' => 'application/json'];
+
+        if (!is_null($user)) {
+            $token = $this->loginAs($user)->token;
+            $headers['Authorization'] = 'Bearer '.$token;
+        }
+
+        return $headers;
     }
 }

@@ -46,10 +46,6 @@ $router->group(['middleware' => 'jwt.auth'], function($router)
 {
     $router->group(['prefix' => 'income'], function () use ($router)
     {
-        $router->get('users', function() {
-            $users = \App\User::all();
-            return response()->json($users);
-        });
         $router->get('/', [
             'uses' => 'IncomeController@index'
         ]);
@@ -74,16 +70,19 @@ $router->group(['middleware' => 'jwt.auth'], function($router)
         $router->get('/', [
             'uses' => 'ExpenseController@index'
         ]);
+        $router->get('/all', [
+            'uses' => 'ExpenseController@getAll'
+        ]);
         $router->get('/search', [
             'uses' => 'ExpenseController@search'
         ]);
-        $router->put('/{income}', [
+        $router->put('/{expense}', [
             'uses' => 'ExpenseController@update'
         ]);
-        $router->get('/{income}', [
+        $router->get('/{expense}', [
             'uses' => 'ExpenseController@detail'
         ]);
-        $router->delete('/{income}', [
+        $router->delete('/{expense}', [
             'uses' => 'ExpenseController@delete'
         ]);
         $router->post('/', [

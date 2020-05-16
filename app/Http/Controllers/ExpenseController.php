@@ -4,115 +4,151 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Expense;
+use App\Transformers\ExpenseTransformer;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use League\Fractal\Manager;
+use League\Fractal\Pagination\IlluminatePaginatorAdapter;
+use League\Fractal\Resource\Collection;
+use League\Fractal\Resource\Item;
 
 class ExpenseController extends Controller
 {
-    public function index()
+    /**
+     * Fractal Variable
+     * @var Object
+     */
+    protected $fractal;
+    public function __construct()
     {
-        $incomes = Expense::with('category', 'user')
-                            ->where('user_id', Cache::get('auth')->id)
-                            ->orderBy('date', 'desc')->paginate(10);
-
-        return response()->json([
-            'incomes' => $incomes,
-            'message' => 'Success!'
-        ], 200);
+        $this->fractal = new Manager();
     }
-
-    public function getAll()
+    /**
+     * Get All Expense
+     * @return Illuminate\Http\Illuminate\Http\JsonResponse
+     */
+    public function index(): JsonResponse
     {
-        $incomes = Expense::with('category', 'user')
-                            ->where('user_id', Cache::get('auth')->id)
-                            ->orWhereNull('user_id')->orderBy('date', 'desc')->get();
+        $paginator = Expense::with('category', 'user')
+                            ->when(app('request')->search, function ($query) {
+                                return $query->search(app('request')->search, ['description']);
+                            })
+                            ->where('user_id', app('request')->auth->id)
+                            ->orWhereNull('user_id')->orderBy('date', 'desc')->paginate(app('request')->paginate ?? null);
+        $expenses = $paginator->getCollection();
+        $resources = new Collection($expenses, new ExpenseTransformer());
+        if (app('request')->paginate) {
+            $resources->setPaginator(new IlluminatePaginatorAdapter($paginator));
+        }
+        $response = $this->fractal->createData($resources)->toArray();
 
-        return response()->json([
-            'incomes' => $incomes,
-            'message' => 'Success!'
-        ], 200);
+        return response()->json($response);
     }
-
-    public function detail($income)
+    /**
+     * Get Detail Expense data
+     * @param  Int $expense
+     * @return Illuminate\Http\JsonResponse
+     */
+    public function detail(int $expense): JsonResponse
     {
-        $income = Expense::with('category', 'user')->find($income);
+        $expense = Expense::with('category', 'user')->findOrFail($expense);
+        $resources = new Item($expense, new ExpenseTransformer);
+        $response = $this->fractal->createData($resources)->toArray();
 
-        return response()->json([
-            'message' => 'Success!',
-            'income' => $income,
-        ], 200);
+        return response()->json($response);
     }
+    /**
+     * Store Data Expense
+     * @param  Illuminate\Http\Request $request
+     * @return Illuminate\Http\JsonResponse
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $this->validateRequest($request);
+        $category = Category::findOrFail($request->category_id);
+        try {
+            DB::beginTransaction();
+            $expense = new Expense();
+            $expense->fill($request->all());
+            $expense->category()->associate($category);
+            $expense->save();
+            $resources = new Item($expense, new ExpenseTransformer());
+            $response = $this->fractal->createData($resources)->toArray();
+            DB::commit();
 
-    public function store(Request $request)
+            return response()->json($response);
+        } catch (\Exception $e) {
+            DB::rollback();
+
+            return response()->json($e);
+        }
+    }
+    /**
+     * Update Date Expense
+     * @param  Request $request
+     * @param  int     $expense
+     * @return Illuminate\Http\JsonResponse
+     */
+    public function update(Request $request, int $expense): JsonResponse
+    {
+        $this->validateRequest($request);
+        $category = Category::findOrFail($request->category_id);
+        try {
+            DB::beginTransaction();
+            $expense = Expense::findOrFail($expense);
+            $expense->fill($request->all());
+            $expense->category()->associate($category);
+            $expense->update();
+            $resources = new Item($expense, new ExpenseTransformer());
+            $response = $this->fractal->createData($resources)->toArray();
+            DB::commit();
+
+            return response()->json($response);
+        } catch (\Exception $e) {
+            DB::rollback();
+
+            return response()->json($e);
+        }
+    }
+    /**
+     * Delete Expense
+     * @param  int    $expense
+     * @return Illuminate\Http\JsonResponse
+     */
+    public function delete(int $expense): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+            $expense = Expense::findOrFail($expense);
+            $expense->delete();
+            DB::commit();
+
+            return response()->json(true);
+        } catch (\Exception $e) {
+            DB::rollback();
+
+            return response()->json($e);
+        }
+    }
+    /**
+     * Validate Request
+     * @param  Illuminate\Http\Request $request
+     * @return void
+     */
+    protected function validateRequest($request): void
     {
         $this->validate($request, [
-            'category_id' => 'required',
-            'money' => 'required',
+            'category_id' => ['required',
+            function ($attribute, $value, $fail) {
+                $category = Category::findOrFail($value);
+                if ($category->type->name != 'Expense') {
+                    return $fail('Category type is not allowed');
+                }
+            }],
+            'money' => 'required|int',
             'date' => 'required'
-        ]);
-        $category = Category::find($request->category_id);
-        if ($category->type->name == 'Expense') {
-            $income = new Expense();
-            $income->fill($request->all());
-            $income->category()->associate($category);
-            $income->save();
-        }else {
-            return response()->json([
-                "message" => "Category type is not allowed"
-            ], 402);
-        }
-        return response()->json([
-            'message' => 'Success!',
-            'income' => $income,
-        ], 200);
-    }
-
-    public function update(Request $request, $income)
-    {
-        $income = Expense::find($income);
-        $this->validate($request, [
-            'category_id' => 'required',
-            'money' => 'required',
-            'date' => 'required'
-        ]);
-        $category = Category::find($request->category_id);
-        if ($category->type->name == 'Expense') {
-            $income->fill($request->all());
-            $income->category()->associate($category);
-            $income->save();
-        }else {
-            return response()->json([
-                "message" => "Category type is not allowed"
-            ], 402);
-        }
-
-        return response()->json([
-            'message' => 'Success!',
-            'income' => $income,
-        ], 200);
-    }
-
-
-    public function delete($income)
-    {
-        $income = Expense::find($income);
-        $income->delete();
-
-        return response()->json([
-            'message' => 'Success!'
-        ]);
-    }
-
-    public function search(Request $request)
-    {
-        $incomes = Expense::with('category', 'user')
-                            ->where('description', 'LIKE', "%%".$request->input('q')."%%")
-                            ->where('user_id', Cache::get('auth')->id)
-                            ->orderBy('date', 'desc')->paginate(10);
-
-        return response()->json([
-            'message' => 'Success!',
-            'incomes' => $incomes
         ]);
     }
 }

@@ -4,182 +4,151 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Income;
+use App\Transformers\IncomeTransformer;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use League\Fractal\Manager;
+use League\Fractal\Pagination\IlluminatePaginatorAdapter;
+use League\Fractal\Resource\Collection;
+use League\Fractal\Resource\Item;
 
 class IncomeController extends Controller
 {
     /**
-     * Get All Data income by paginate 10
-     * @return Json Response
+     * Fractal Variable
+     * @var Object
      */
-    public function index()
+    protected $fractal;
+    public function __construct()
     {
-        $incomes = Income::with('category', 'user')
+        $this->fractal = new Manager();
+    }
+    /**
+     * Get All Income
+     * @return Illuminate\Http\Illuminate\Http\JsonResponse
+     */
+    public function index(): JsonResponse
+    {
+        $paginator = Income::with('category', 'user')
+                            ->when(app('request')->search, function ($query) {
+                                return $query->search(app('request')->search, ['description']);
+                            })
                             ->where('user_id', app('request')->auth->id)
-                            ->orderBy('date', 'desc')->paginate(10);
+                            ->orWhereNull('user_id')->orderBy('date', 'desc')
+                            ->paginate(app('request')->paginate ?? null);
+        $expenses = $paginator->getCollection();
+        $resources = new Collection($expenses, new IncomeTransformer());
+        if (app('request')->paginate) {
+            $resources->setPaginator(new IlluminatePaginatorAdapter($paginator));
+        }
+        $response = $this->fractal->createData($resources)->toArray();
 
-        return response()->json([
-            'incomes' => $incomes,
-            'message' => 'Success!'
-        ], 200);
+        return response()->json($response);
     }
     /**
-     * Get All Income Data
-     * @return Reponse Json
+     * Get Detail Income data
+     * @param  Int $expense
+     * @return Illuminate\Http\JsonResponse
      */
-    public function getAll()
+    public function detail(int $expense): JsonResponse
     {
-        $incomes = Income::with('category', 'user')
-                            ->where('user_id', app('request')->auth->id)
-                            ->orWhereNull('user_id')->orderBy('date', 'desc')->get();
+        $expense = Income::with('category', 'user')->findOrFail($expense);
+        $resources = new Item($expense, new IncomeTransformer);
+        $response = $this->fractal->createData($resources)->toArray();
 
-        return response()->json([
-            'incomes' => $incomes,
-            'message' => 'Success!'
-        ], 200);
+        return response()->json($response);
     }
     /**
-     * Get Detail Income by Id $income
-     * @param  Integer $income
-     * @return  Json Response
+     * Store Data Income
+     * @param  Illuminate\Http\Request $request
+     * @return Illuminate\Http\JsonResponse
      */
-    public function detail($income)
+    public function store(Request $request): JsonResponse
     {
-        $income = Income::with('category', 'user')->findOrFail($income);
-
-        return response()->json([
-            'message' => 'Success!',
-            'income' => $income,
-        ], 200);
-    }
-    /**
-     * Store data income to database
-     * @param  Request $request [
-     *   'category_id', 'money', 'date
-     * ]
-     * @return Json Response
-     */
-    public function store(Request $request)
-    {
-        $this->validate($request, [
-            'category_id' => 'required',
-            'money' => 'required|int',
-            'date' => 'required'
-        ]);
+        $this->validateRequest($request);
+        $category = Category::findOrFail($request->category_id);
         try {
             DB::beginTransaction();
-            $category = Category::findOrFail($request->category_id);
-            if ($category->type->name == 'Income') {
-                $income = new Income();
-                $income->fill($request->all());
-                $income->category()->associate($category);
-                $income->save();
-            } else {
-                DB::rollback();
-                return response()->json([
-                    "message" => "Category type is not allowed"
-                ], 402);
-            }
+            $expense = new Income();
+            $expense->fill($request->all());
+            $expense->category()->associate($category);
+            $expense->save();
+            $resources = new Item($expense, new IncomeTransformer());
+            $response = $this->fractal->createData($resources)->toArray();
             DB::commit();
 
-            return response()->json([
-                'message' => 'Success!',
-                'income' => $income,
-            ], 200);
+            return response()->json($response);
         } catch (\Exception $e) {
             DB::rollback();
 
-            return response()->json([
-                'error' => true,
-                'message' => $e->message
-            ], 500);
+            return response()->json($e);
         }
     }
     /**
-     * Update data income
-     * @param  Request $request [
-     *   'category_id', 'money', 'date
-     * ]
-     * @param  Integer  $income
-     * @return Json Response
-     */
-    public function update(Request $request, $income)
-    {
-        $income = Income::findOrFail($income);
-        $this->validate($request, [
-            'category_id' => 'required',
-            'money' => 'required|int',
-            'date' => 'required'
-        ]);
-        try {
-            DB::beginTransaction();
-            $category = Category::findOrFail($request->category_id);
-            if ($category->type->name == 'Income') {
-                $income->fill($request->all());
-                $income->category()->associate($category);
-                $income->save();
-            } else {
-                DB::rollback();
-                return response()->json([
-                    "message" => "Category type is not allowed"
-                ], 402);
-            }
-            DB::commit();
-
-            return response()->json([
-                'message' => 'Success!',
-                'income' => $income,
-            ], 200);
-        } catch (\Exception $e) {
-            DB::rollback();
-
-            return response()->json([
-                'error' => true,
-                'message' => $e->message
-            ], 500);
-        }
-    }
-    /**
-     * Delete data income
-     * @param  Integer $income
-     * @return Reponse Json
-     */
-    public function delete($income)
-    {
-        try {
-            DB::beginTransaction();
-
-            $income = Income::findOrFail($income);
-            $income->delete();
-            DB::commit();
-            return response()->json([
-                'message' => 'Success!'
-            ]);
-        } catch (\Exception $e) {
-            DB::rollback();
-
-            return response()->json([
-                'error' => true,
-                'message' => $e->message
-            ]);
-        }
-    }
-    /**
-     * Search data income by description, user_id
+     * Update Date Income
      * @param  Request $request
-     * @return Json Response
+     * @param  int     $expense
+     * @return Illuminate\Http\JsonResponse
      */
-    public function search(Request $request)
+    public function update(Request $request, int $expense): JsonResponse
     {
-        $incomes = Income::with('category', 'user')
-                            ->where('description', 'LIKE', "%%".$request->input('q')."%%")
-                            ->where('user_id', app('request')->auth->id)
-                            ->orderBy('date', 'desc')->paginate(10);
+        $this->validateRequest($request);
+        $category = Category::findOrFail($request->category_id);
+        try {
+            DB::beginTransaction();
+            $expense = Income::findOrFail($expense);
+            $expense->fill($request->all());
+            $expense->category()->associate($category);
+            $expense->update();
+            $resources = new Item($expense, new IncomeTransformer());
+            $response = $this->fractal->createData($resources)->toArray();
+            DB::commit();
 
-        return response()->json([
-            'message' => 'Success!',
-            'incomes' => $incomes
+            return response()->json($response);
+        } catch (\Exception $e) {
+            DB::rollback();
+
+            return response()->json($e);
+        }
+    }
+    /**
+     * Delete Income
+     * @param  int    $expense
+     * @return Illuminate\Http\JsonResponse
+     */
+    public function delete(int $expense): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+            $expense = Income::findOrFail($expense);
+            $expense->delete();
+            DB::commit();
+
+            return response()->json(true);
+        } catch (\Exception $e) {
+            DB::rollback();
+
+            return response()->json($e);
+        }
+    }
+    /**
+     * Validate Request
+     * @param  Illuminate\Http\Request $request
+     * @return void
+     */
+    protected function validateRequest($request): void
+    {
+        $this->validate($request, [
+            'category_id' => ['required',
+            function ($attribute, $value, $fail) {
+                $category = Category::findOrFail($value);
+                if ($category->type->name != 'Income') {
+                    return $fail('Category type is not allowed');
+                }
+            }],
+            'money' => 'required|int',
+            'date' => 'required'
         ]);
     }
 }
